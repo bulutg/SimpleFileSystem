@@ -27,7 +27,7 @@ typedef struct rootdir {
 	int isAvailable;
 } rtdir;
 
-typedef struct fsbEntry{
+typedef struct fcbEntry{
 	int dir;
 	int nextblk;
 } fcb;
