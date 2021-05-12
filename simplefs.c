@@ -7,6 +7,10 @@
 #include <fcntl.h>
 #include "simplefs.h"
 
+#define DIR_ENTRY_SIZE 128
+#define DIR_BLOCK_COUNT 4
+#define FCB_ENTRY_SIZE 128
+#define FCB_BLOCK_COUNT 4
 
 // Global Variables =======================================
 int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
@@ -15,6 +19,18 @@ int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
               // Applications will not use  this directly. 
 // ========================================================
 
+
+typedef struct rootdir {
+	char name[128];
+	int size;
+	int blk;
+	int isAvailable;
+} rtdir;
+
+typedef struct fsbEntry{
+	int dir;
+	int nextblk;
+} fcb;
 
 // read block k from disk (virtual disk) into buffer block.
 // size of the block is BLOCKSIZE.
@@ -73,6 +89,55 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
 
     // now write the code to format the disk below.
     // .. your code...
+
+    sfs_mount(vdiskname);
+
+    if (vdisk_fd != 1){
+    	printf("formatting...\n");
+    	int size;
+    	int pos;
+
+    	void *rootdirptr;
+
+    	rtdir *entryptr = (rtdir*) malloc(sizeof(rtdir));
+
+    	rootdirptr = (void*) entryptr;
+
+    	entryptr -> size = 0;
+    	entryptr -> blk = -1;
+    	entryptr -> isAvailable = -1;
+
+    	size = BLOCKSIZE * DIR_BLOCK_COUNT / DIR_ENTRY_SIZE;
+    	pos = BLOCKSIZE;
+
+    	for (int i = 0; i < size; ++i)
+    	{
+    		lseek(vdisk_fd, (off_t) pos, SEEK_SET);
+    		write(vdisk_fd, rootdirptr, sizeof(rtdir));
+    		pos += DIR_ENTRY_SIZE;
+    	}
+
+    	fcb *fcbptr = (fcb*) malloc(sizeof(fcb));
+    	fcbptr -> dir = -1;
+    	fcbptr -> nextblk = -1;
+
+    	void* voidfcb = (void*) fcbptr;
+
+    	pos = BLOCKSIZE * (DIR_BLOCK_COUNT + 1);
+
+    	for (int i = 0; i < FCB_ENTRY_SIZE; ++i)
+    	{
+    		lseek(vdisk_fd, (off_t) pos, SEEK_SET);
+    		write(vdisk_fd, voidfcb, sizeof(fcb));
+    		pos += FCB_ENTRY_SIZE;
+    	}
+    	free(fcbptr);
+    	free(entryptr);
+
+    }
+    else {
+    	printf("open disk error!\n");
+    }
     
     return (0); 
 }
