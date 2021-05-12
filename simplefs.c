@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
 #include "simplefs.h"
 
 #define DIR_ENTRY_SIZE 128
@@ -162,9 +163,82 @@ int sfs_umount ()
     return (0); 
 }
 
+int getDir(char* fname){
+	int pos = BLOCKSIZE;
+	rtdir* entryptr;
+	void* root = (void*) malloc(DIR_ENTRY_SIZE);
 
-int sfs_create(char *filename)
-{
+	int size = (BLOCKSIZE * DIR_BLOCK_COUNT / DIR_ENTRY_SIZE);
+
+	for (int i = 0; i < size; ++i)
+	{
+		lseek(vdisk_fd, (off_t) pos, SEEK_SET);
+		read(vdisk_fd, root, DIR_ENTRY_SIZE);
+		entryptr = (rtdir*) root;
+		pos += DIR_ENTRY_SIZE;
+
+		if ( (entryptr -> isAvailable) >= 0  ){
+			if ( strcmp( entryptr -> name, fname) == 0 ) {
+				free(entryptr);
+				return i;
+			}
+		}
+	}
+
+	free(entryptr);
+	return -1;
+}
+
+int mkFCB(int blk){
+	fcb* fcbptr;
+	int pos = BLOCKSIZE * (DIR_BLOCK_COUNT + 1);
+	void* fcbvoid = (void*) malloc(FCB_ENTRY_SIZE);
+
+	int size = (BLOCKSIZE * FCB_BLOCK_COUNT / FCB_ENTRY_SIZE);
+
+	int tmp;
+
+	for (int i = 0; i < size; ++i)
+	{
+		tmp = i;
+		lseek(vdisk_fd, (off_t) pos, SEEK_SET);
+		read(vdisk_fd, fcbvoid, FCB_ENTRY_SIZE);
+		fcbptr = (fcb*) fcbvoid;
+
+		if ( (fcbptr -> dir) < 0) {
+			fcbptr -> nextblk = blk;
+			fcbptr -> dir = 0;
+			lseek(vdisk_fd, (off_t) pos, SEEK_SET);
+			write(vdisk_fd, fcbvoid, FCB_ENTRY_SIZE);
+			break;
+		}
+
+		pos += FCB_ENTRY_SIZE;
+	}
+
+	free(fcbptr);
+
+	return (tmp == size) ? -1 : tmp;
+}
+
+int mkDir(char *filename, int size, int blk){
+	return 0;
+}
+
+int delFCB(int blk){
+	return 0;
+}
+
+int sfs_create(char *filename){
+	if ( getDir(filename) != -1 ) return -1;
+
+	int blk = mkFCB(-1);
+	if ( blk < 0 ) return -1;
+
+	if ( mkDir(filename, 0 , blk ) < 0 ) {
+		delFCB(blk);
+		return -1;
+	}
     return (0);
 }
 
