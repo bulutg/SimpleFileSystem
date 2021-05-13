@@ -221,8 +221,40 @@ int mkFCB(int blk){
 	return (tmp == size) ? -1 : tmp;
 }
 
-int mkDir(char *filename, int size, int blk){
-	return 0;
+int mkDir(char *filename, int fsize, int blkNo){
+	int pos = BLOCKSIZE;
+	rtdir* rootptr;
+	void* root = (void*)malloc(DIR_ENTRY_SIZE);
+	int tmp;
+
+	int size = BLOCKSIZE*DIR_BLOCK_COUNT/DIR_ENTRY_SIZE;
+
+	for (int i = 0; i < size; ++i)
+	{
+		tmp=i;
+		lseek(vdisk_fd, (off_t)pos, SEEK_SET);
+		read(vdisk_fd, root, DIR_ENTRY_SIZE);
+		rootptr = (rtdir*) root;
+
+		if(rootptr->isAvailable < 0){
+			rootptr->isAvailable=1;
+			rootptr->blk=blkNo;
+			rootptr->size=fsize;
+
+			strcpy(rootptr->name, filename);
+
+			lseek(vdisk_fd, (off_t)pos, SEEK_SET);
+			write(vdisk_fd, root, sizeof(rtdir));
+
+			break;
+		}
+
+		pos += DIR_ENTRY_SIZE;
+	}
+	
+	free(rootptr);
+	
+	return (tmp == size) ? -1 : tmp;
 }
 
 int delFCB(int blk){
@@ -239,6 +271,7 @@ int sfs_create(char *filename){
 		delFCB(blk);
 		return -1;
 	}
+
     return (0);
 }
 
