@@ -8,10 +8,10 @@
 #include <string.h>
 #include "simplefs.h"
 
-#define DIR_ENTRY_SIZE 128
-#define DIR_BLOCK_COUNT 4
-#define FCB_ENTRY_SIZE 128
-#define FCB_BLOCK_COUNT 4
+#define DIR_ENTRY_SIZE 256
+#define DIR_BLOCK_COUNT 7
+#define FCB_ENTRY_SIZE 8
+#define FCB_BLOCK_COUNT 256
 
 // Global Variables =======================================
 int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
@@ -93,6 +93,8 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
 
     sfs_mount(vdiskname);
 
+    printf("in create formatting...\n");
+
     if (vdisk_fd != 1){
     	printf("formatting...\n");
     	int size;
@@ -168,7 +170,7 @@ int getDir(char* fname){
 	rtdir* entryptr;
 	void* root = (void*) malloc(DIR_ENTRY_SIZE);
 
-	int size = (BLOCKSIZE * DIR_BLOCK_COUNT / DIR_ENTRY_SIZE);
+	int size = (BLOCKSIZE / DIR_ENTRY_SIZE *DIR_BLOCK_COUNT );
 
 	for (int i = 0; i < size; ++i)
 	{
@@ -194,7 +196,7 @@ int mkFCB(int blk){
 	int pos = BLOCKSIZE * (DIR_BLOCK_COUNT + 1);
 	void* fcbvoid = (void*) malloc(FCB_ENTRY_SIZE);
 
-	int size = (BLOCKSIZE * FCB_BLOCK_COUNT / FCB_ENTRY_SIZE);
+	int size = (BLOCKSIZE / FCB_ENTRY_SIZE * FCB_BLOCK_COUNT );
 
 	int tmp;
 
@@ -227,7 +229,7 @@ int mkDir(char *filename, int fsize, int blkNo){
 	void* root = (void*)malloc(DIR_ENTRY_SIZE);
 	int tmp;
 
-	int size = BLOCKSIZE*DIR_BLOCK_COUNT/DIR_ENTRY_SIZE;
+	int size = BLOCKSIZE/DIR_ENTRY_SIZE*DIR_BLOCK_COUNT;
 
 	for (int i = 0; i < size; ++i)
 	{
@@ -282,12 +284,22 @@ int sfs_create(char *filename){
 	if ( getDir(filename) != -1 ) return -1;
 
 	int blk = mkFCB(-1);
+	void* tmp = (void*) malloc(BLOCKSIZE);
+
 	if ( blk < 0 ) return -1;
 
 	if ( mkDir(filename, 0 , blk ) < 0 ) {
+		printf("deleting fcb...\n");
 		delFCB(blk);
 		return -1;
 	}
+
+	int size = blk + FCB_BLOCK_COUNT + DIR_BLOCK_COUNT + 1;
+
+	write_block(tmp, size);
+	printf("sfs create complete\n");
+	free(tmp);
+
 
     return (0);
 }
@@ -317,8 +329,45 @@ int sfs_append(int fd, void *buf, int n)
     return (0); 
 }
 
+int safeDeleteFatEntry( int n) {
+    fcb *entry;
+    entry = getFatEntry( n);
+
+    if ( entry->nextblk != -1) {
+        int s = safeDeleteFatEntry( entry->nextblk);
+        if ( s == -1)
+            return -1;
+    }
+
+    deleteFatEntry( n);
+    return 0;
+}
+
+int deleteDirEntry( int n) {
+    rtdir *entry = (rtdir *) malloc( sizeof( rtdir));
+    entry->isAvailable = -1;
+    entry->blk = -1;
+    entry->size = 0;
+
+    void *rt = (void *) entry;
+
+    int offset = BLOCKSIZE + n * DIR_ENTRY_SIZE;
+
+    lseek( vdisk_fd, (off_t) offset, SEEK_SET);
+    write( vdisk_fd, rt, sizeof(rtdir));
+
+    free( entry);
+
+    return 0;
+}
+
 int sfs_delete(char *filename)
 {
+
+
+
+
+
     return (0); 
 }
 
