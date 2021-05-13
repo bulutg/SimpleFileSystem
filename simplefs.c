@@ -251,13 +251,30 @@ int mkDir(char *filename, int fsize, int blkNo){
 
 		pos += DIR_ENTRY_SIZE;
 	}
-	
+
 	free(rootptr);
 	
 	return (tmp == size) ? -1 : tmp;
 }
 
-int delFCB(int blk){
+int delFCB(int num){
+	int root = BLOCKSIZE * (DIR_BLOCK_COUNT + 1);
+	int pos = FCB_ENTRY_SIZE * root + num;
+
+	fcb* fcbptr = (fcb*) malloc(sizeof(fcb));
+
+	fcbptr->dir=-1;
+	fcbptr->nextblk=-1;
+
+	void* fcbvoid = (void*) fcbptr;
+	void* tmp = (void*) malloc(BLOCKSIZE);
+
+	lseek(vdisk_fd, (off_t) pos, SEEK_SET);
+	write(vdisk_fd, fcbvoid, sizeof(fcb));
+
+	write_block(tmp, (FCB_BLOCK_COUNT+DIR_BLOCK_COUNT+1+num));
+	free(tmp);
+
 	return 0;
 }
 
